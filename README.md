@@ -1,6 +1,12 @@
 # VhostFinder
 This tool will identify virtual hosts by performing a similarity comparison. It will generate a baseline request to attempt to map a non-existent virtual host. From there it will iterate over the supplied domains and compare them for any differences. Any significant differences will result in a virtual host being detected.
 
+# Install
+
+```
+go install -v github.com/wdahlenburg/VhostFinder@latest
+```
+
 # Usage
 
 ```
