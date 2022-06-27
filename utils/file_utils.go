@@ -5,9 +5,9 @@ import (
 	"os"
 )
 
-func ReadDomains(Wordlist string) ([]string, error) {
+func ReadDomains(wordlist string) ([]string, error) {
 	var domains []string
-	f, err := os.Open(Wordlist)
+	f, err := os.Open(wordlist)
 
 	if err != nil {
 		return nil, err
