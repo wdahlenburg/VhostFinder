@@ -10,7 +10,7 @@ import (
 func main() {
 	var (
 		ip      string
-		file    string
+		wordlist    string
 		threads int
 		port    int
 		tls     bool
@@ -20,7 +20,7 @@ func main() {
 	)
 
 	flag.StringVar(&ip, "ip", "", "IP Address to Fuzz")
-	flag.StringVar(&file, "file", "", "File of domain names to fuzz for")
+	flag.StringVar(&wordlist, "wordlist", "", "File of domain names to fuzz for")
 	flag.IntVar(&threads, "threads", 10, "Number of threads to use")
 	flag.BoolVar(&tls, "tls", true, "Use TLS (Default: true)")
 	flag.BoolVar(&verbose, "v", false, "Verbose mode")
@@ -30,8 +30,8 @@ func main() {
 
 	flag.Parse()
 
-	if ip == "" || file == "" {
-		fmt.Printf("[!] Usage: vhost_finder -ip 10.8.0.1 -file domains.txt\n")
+	if ip == "" || wordlist == "" {
+		fmt.Printf("[!] Usage: vhost_finder -ip 10.8.0.1 -wordlist domains.txt\n")
 		flag.PrintDefaults()
 		return
 	}
@@ -39,7 +39,7 @@ func main() {
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
 		Ip:       ip,
-		Filename: file,
+		Wordlist: wordlist,
 		Threads:  threads,
 		Tls:      tls,
 		Verbose:  verbose,

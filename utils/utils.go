@@ -10,7 +10,7 @@ import (
 
 type Options struct {
 	Ip       string
-	Filename string
+	Wordlist string
 	Threads  int
 	Port     int
 	Tls      bool
@@ -20,7 +20,7 @@ type Options struct {
 }
 
 func EnumerateVhosts(opts *Options) {
-	domains, err := ReadDomains(opts.Filename)
+	domains, err := ReadDomains(opts.Wordlist)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}

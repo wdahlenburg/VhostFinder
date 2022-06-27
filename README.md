@@ -10,22 +10,22 @@ go install -v github.com/wdahlenburg/VhostFinder@latest
 # Usage
 
 ```
-Usage: VhostFinder -ip 10.8.0.1 -file domains.txt
-  -file string
-      File of domain names to fuzz for
+Usage: VhostFinder -ip 10.8.0.1 -wordlist domains.txt
   -ip string
-      IP Address to Fuzz
+    	IP Address to Fuzz
   -path string
-      Custom path to send during fuzzing (default "/")
+    	Custom path to send during fuzzing (default "/")
   -port int
-      Port to use (default 443)
+    	Port to use (default 443)
   -threads int
-      Number of threads to use (default 10)
+    	Number of threads to use (default 10)
   -tls
-      Use TLS (Default: true) (default true)
-  -v  Verbose mode
+    	Use TLS (Default: true) (default true)
+  -v	Verbose mode
   -verify
-      Verify vhost is different than public url
+    	Verify vhost is different than public url
+  -wordlist string
+    	File of domain names to fuzz for
 ```
 
 # What is Virtual Host Fuzzing?
