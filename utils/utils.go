@@ -9,18 +9,19 @@ import (
 )
 
 type Options struct {
-	Ip       string
-	Wordlist string
-	Threads  int
-	Port     int
-	Tls      bool
-	Verbose  bool
-	Verify   bool
-	Path     string
+	Ip       	string
+	Wordlist 	string
+	DomainName  string
+	Threads  	int
+	Port     	int
+	Tls      	bool
+	Verbose  	bool
+	Verify   	bool
+	Path     	string
 }
 
 func EnumerateVhosts(opts *Options) {
-	domains, err := ReadDomains(opts.Wordlist)
+	domains, err := ReadDomains(opts.Wordlist, opts.DomainName)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
