@@ -27,7 +27,8 @@ Usage: VhostFinder -ip 10.8.0.1 -wordlist domains.txt
   -wordlist string
     	File of domain names or host names to fuzz for
   -domainname string
-      (Optional) Specify a domain name to append to wordlist of hostnames/subdomains
+      Specify domain name or list of comma seperated 
+      domain names to append to wordlist of hostnames/subdomains
 ```
 
 ### Examples:
@@ -42,6 +43,16 @@ Usage: VhostFinder -ip 10.8.0.1 -wordlist domains.txt
   [!] Obtaining baseline
   [+] admin.host1.example.com
   [-] test.host1.example.com
+
+  VhostFinder -ip 10.8.0.1 -wordlist hostnames.txt -domainname host1.example.com,anotherdomain.net,host2.example.com -v
+  [!] Finding vhosts!
+  [!] Obtaining baseline
+  [+] admin.host1.example.com
+  [-] test.host1.example.com
+  [-] admin.anotherdomain.net
+  [-] test.anotherdomain.net
+  [+] admin.host2.example.com
+  [-] test.host2.example.com
 ```
 
 # What is Virtual Host Fuzzing?

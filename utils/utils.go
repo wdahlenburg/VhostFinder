@@ -21,7 +21,7 @@ type Options struct {
 }
 
 func EnumerateVhosts(opts *Options) {
-	domains, err := ReadDomains(opts.Wordlist, opts.DomainName)
+	domains, domainNames, err := ReadDomains(opts.Wordlist, opts.DomainName)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
@@ -35,6 +35,8 @@ func EnumerateVhosts(opts *Options) {
 		os.Exit(1)
 	}
 
+	var dnSet bool = len(domainNames) > 0
+
 	threadChan := make(chan string, opts.Threads)
 	var wg sync.WaitGroup
 
@@ -42,8 +44,16 @@ func EnumerateVhosts(opts *Options) {
 		go worker(opts, threadChan, baseline, &wg)
 	}
 	for _, domain := range domains {
-		wg.Add(1)
-		threadChan <- domain
+		// Add domain name append to thread channel so we can preserve thread count limits
+		if dnSet {
+			for _, d := range domainNames{
+				wg.Add(1)
+				threadChan <- fmt.Sprintf("%s.%s", domain, d)
+			}
+		} else {
+			wg.Add(1)
+			threadChan <- domain
+		}
 	}
 	wg.Wait()
 	close(threadChan)
