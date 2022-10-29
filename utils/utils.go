@@ -11,6 +11,7 @@ import (
 type Options struct {
 	Ip       string
 	Wordlist string
+	Domains  []string
 	Threads  int
 	Port     int
 	Tls      bool
@@ -20,7 +21,7 @@ type Options struct {
 }
 
 func EnumerateVhosts(opts *Options) {
-	domains, err := ReadDomains(opts.Wordlist)
+	domains, err := ReadDomains(opts.Wordlist, opts.Domains)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}

@@ -2,11 +2,14 @@ package utils
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 )
 
-func ReadDomains(wordlist string) ([]string, error) {
+func ReadDomains(wordlist string, domainList []string) ([]string, error) {
 	var domains []string
+	var dnSet bool = len(domainList) > 0
+
 	f, err := os.Open(wordlist)
 
 	if err != nil {
@@ -18,7 +21,14 @@ func ReadDomains(wordlist string) ([]string, error) {
 	scanner := bufio.NewScanner(f)
 
 	for scanner.Scan() {
-		domains = append(domains, scanner.Text())
+		guess := scanner.Text()
+		if dnSet {
+			for _, domain := range domainList {
+				domains = append(domains, fmt.Sprintf("%s.%s", guess, domain))
+			}
+		} else {
+			domains = append(domains, guess)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
