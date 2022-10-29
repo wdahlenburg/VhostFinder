@@ -11,24 +11,23 @@ go install -v github.com/wdahlenburg/VhostFinder@latest
 
 ```
 Usage: VhostFinder -ip 10.8.0.1 -wordlist domains.txt
+  -domains string
+      Optional domain or comma seperated list to append to a subdomain wordlist (Ex: example1.com,example2.com)
   -ip string
-    	IP Address to Fuzz
+      IP Address to Fuzz
   -path string
-    	Custom path to send during fuzzing (default "/")
+      Custom path to send during fuzzing (default "/")
   -port int
-    	Port to use (default 443)
+      Port to use (default 443)
   -threads int
-    	Number of threads to use (default 10)
+      Number of threads to use (default 10)
   -tls
-    	Use TLS (Default: true) (default true)
-  -v	Verbose mode
+      Use TLS (default true)
+  -v  Verbose mode
   -verify
-    	Verify vhost is different than public url
+      Verify vhost is different than public url
   -wordlist string
-    	File of domain names or host names to fuzz for
-  -domainname string
-      Specify domain name or list of comma seperated 
-      domain names to append to wordlist of hostnames/subdomains
+      File of FQDNs or subdomain prefixes to fuzz for
 ```
 
 ### Examples:
@@ -38,13 +37,13 @@ Usage: VhostFinder -ip 10.8.0.1 -wordlist domains.txt
   [!] Obtaining baseline
   [+] host.example.com
 
-  VhostFinder -ip 10.8.0.1 -wordlist hostnames.txt -domainname host1.example.com -v
+  VhostFinder -ip 10.8.0.1 -wordlist subdomains.txt -domains host1.example.com -v
   [!] Finding vhosts!
   [!] Obtaining baseline
   [+] admin.host1.example.com
   [-] test.host1.example.com
 
-  VhostFinder -ip 10.8.0.1 -wordlist hostnames.txt -domainname host1.example.com,anotherdomain.net,host2.example.com -v
+  VhostFinder -ip 10.8.0.1 -wordlist subdomains.txt -domains host1.example.com,anotherdomain.net,host2.example.com -v
   [!] Finding vhosts!
   [!] Obtaining baseline
   [+] admin.host1.example.com
