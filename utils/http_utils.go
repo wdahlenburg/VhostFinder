@@ -29,7 +29,10 @@ func FuzzHost(ip string, tls bool, domain string, port int, path string) (string
 	url += path
 
 	client := getClient(ip, port)
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
 	req.Header.Set("User-Agent", "VhostFinder")
 	req.Header.Set("Accept-Encoding", "*")
 	req.Host = domain
