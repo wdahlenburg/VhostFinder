@@ -74,9 +74,9 @@ func TestDomain(ip string, tls bool, domain string, port int, path string, basel
 }
 
 func getGeneric(opts *Options, domain string) (string, error) {
-	url := fmt.Sprintf("https://%s%s", domain, opts.Path)
+	url := fmt.Sprintf("https://%s%s", domain, opts.Paths[0])
 	if opts.Tls == false {
-		url = fmt.Sprintf("http://%s%s", domain, opts.Path)
+		url = fmt.Sprintf("http://%s%s", domain, opts.Paths[0])
 	}
 
 	dialer := &net.Dialer{
@@ -171,4 +171,12 @@ func getClient(ip string, port int) *http.Client {
 	}
 
 	return webclient
+}
+
+func GetBaseUrl(opts *Options, ip string, path string) string {
+	scheme := "http"
+	if opts.Tls {
+		scheme += "s"
+	}
+	return fmt.Sprintf("%s://%s:%d%s", scheme, ip, opts.Port, path)
 }
