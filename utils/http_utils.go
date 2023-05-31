@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/wdahlenburg/HttpComparison"
@@ -18,12 +20,12 @@ type FuzzResult struct {
 	Status        int
 }
 
-func FuzzHost(ip string, tls bool, domain string, port int, path string) (*FuzzResult, error) {
+func FuzzHost(opts *Options, ip string, tls bool, domain string, port int, path string) (*FuzzResult, error) {
 	url := ""
 	if tls {
-		url += fmt.Sprintf("https://%s", domain)
+		url += fmt.Sprintf("https://%s", ip)
 	} else {
-		url += fmt.Sprintf("http://%s", domain)
+		url += fmt.Sprintf("http://%s", ip)
 	}
 
 	if tls && port != 443 {
@@ -34,13 +36,14 @@ func FuzzHost(ip string, tls bool, domain string, port int, path string) (*FuzzR
 
 	url += path
 
-	client := getClient(ip, port)
+	client := getClient(opts, ip, port)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "VhostFinder")
-	req.Header.Set("Accept-Encoding", "*")
+	setHeaders(req, opts)
+
+	// Override the host header
 	req.Host = domain
 
 	resp, err := client.Do(req)
@@ -61,8 +64,8 @@ func FuzzHost(ip string, tls bool, domain string, port int, path string) (*FuzzR
 	}, nil
 }
 
-func TestDomain(ip string, tls bool, domain string, port int, path string, baseline string) (bool, *FuzzResult, error) {
-	fuzzedResponse, err := FuzzHost(ip, tls, domain, port, path)
+func TestDomain(opts *Options, ip string, tls bool, domain string, port int, path string, baseline string) (bool, *FuzzResult, error) {
+	fuzzedResponse, err := FuzzHost(opts, ip, tls, domain, port, path)
 	if err != nil {
 		return false, nil, err
 	}
@@ -83,10 +86,10 @@ func TestDomain(ip string, tls bool, domain string, port int, path string, basel
 	return len(diff) != 0, fuzzedResponse, nil
 }
 
-func getGeneric(opts *Options, domain string) (string, error) {
-	url := fmt.Sprintf("https://%s%s", domain, opts.Paths[0])
+func getGeneric(opts *Options, domain string, path string) (string, error) {
+	uri := fmt.Sprintf("https://%s%s", domain, path)
 	if opts.Tls == false {
-		url = fmt.Sprintf("http://%s%s", domain, opts.Paths[0])
+		uri = fmt.Sprintf("http://%s%s", domain, path)
 	}
 
 	dialer := &net.Dialer{
@@ -95,7 +98,6 @@ func getGeneric(opts *Options, domain string) (string, error) {
 	}
 
 	tr := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, network, addr)
 		},
@@ -105,18 +107,26 @@ func getGeneric(opts *Options, domain string) (string, error) {
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
+
+	if opts.Proxy != "" {
+		proxy, err := url.Parse(opts.Proxy)
+		if err != nil {
+			return "", err
+		}
+		tr.Proxy = http.ProxyURL(proxy)
+	}
+
 	client := &http.Client{
 		Transport: tr,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "VhostFinder")
-	req.Header.Set("Accept-Encoding", "*")
+	setHeaders(req, opts)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -132,8 +142,8 @@ func getGeneric(opts *Options, domain string) (string, error) {
 	return string(result), nil
 }
 
-func CompareGeneric(opts *Options, domain string, resp string) bool {
-	publicResp, err := getGeneric(opts, domain)
+func CompareGeneric(opts *Options, domain string, path string, resp string) bool {
+	publicResp, err := getGeneric(opts, domain, path)
 	if err != nil {
 		// DNS failure or timeout occurs then return true
 		fmt.Printf("[!] %s\n", err.Error())
@@ -156,31 +166,53 @@ func CompareGeneric(opts *Options, domain string, resp string) bool {
 	return len(diff) != 0
 }
 
-func getClient(ip string, port int) *http.Client {
+func getClient(opts *Options, ip string, port int) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
 
-	webclient := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				addr = fmt.Sprintf("%s:%d", ip, port)
-				return dialer.DialContext(ctx, network, addr)
-			},
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, addr)
 		},
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+	}
+
+	if opts.Proxy != "" {
+		proxy, err := url.Parse(opts.Proxy)
+		if err != nil {
+			fmt.Printf("[!] Unable to parse proxy: %s\n", err.Error())
+		} else {
+			tr.Proxy = http.ProxyURL(proxy)
+		}
+	}
+
+	webclient := &http.Client{
+		Transport: tr,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 
 	return webclient
+}
+
+func setHeaders(req *http.Request, opts *Options) {
+	req.Header.Set("User-Agent", "VhostFinder")
+	for _, v := range opts.Headers {
+		parts := strings.SplitN(v, ":", 2)
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+
+		if strings.ToLower(key) != "host" {
+			req.Header.Set(key, val)
+		}
+	}
 }
 
 func GetBaseUrl(opts *Options, ip string, path string) string {
