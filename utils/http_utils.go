@@ -12,7 +12,13 @@ import (
 	"github.com/wdahlenburg/HttpComparison"
 )
 
-func FuzzHost(ip string, tls bool, domain string, port int, path string) (string, error) {
+type FuzzResult struct {
+	ContentLength int64
+	Response      string
+	Status        int
+}
+
+func FuzzHost(ip string, tls bool, domain string, port int, path string) (*FuzzResult, error) {
 	url := ""
 	if tls {
 		url += fmt.Sprintf("https://%s", domain)
@@ -31,7 +37,7 @@ func FuzzHost(ip string, tls bool, domain string, port int, path string) (string
 	client := getClient(ip, port)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Set("User-Agent", "VhostFinder")
 	req.Header.Set("Accept-Encoding", "*")
@@ -39,26 +45,30 @@ func FuzzHost(ip string, tls bool, domain string, port int, path string) (string
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	result, err := httputil.DumpResponse(resp, true)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(result), nil
+	return &FuzzResult{
+		ContentLength: resp.ContentLength,
+		Response:      string(result),
+		Status:        resp.StatusCode,
+	}, nil
 }
 
-func TestDomain(ip string, tls bool, domain string, port int, path string, baseline string) (bool, string, error) {
+func TestDomain(ip string, tls bool, domain string, port int, path string, baseline string) (bool, *FuzzResult, error) {
 	fuzzedResponse, err := FuzzHost(ip, tls, domain, port, path)
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 
 	var responses []string
-	responses = append(responses, fuzzedResponse)
+	responses = append(responses, fuzzedResponse.Response)
 
 	similarity_scanner := &HttpComparison.Similarity{
 		Threshhold: 0.50,
@@ -66,10 +76,10 @@ func TestDomain(ip string, tls bool, domain string, port int, path string, basel
 	diff, err := similarity_scanner.CompareStrResponses(baseline, responses)
 	if err != nil {
 		fmt.Printf("[!] %s\n", err.Error())
-		return false, "", err
+		return false, nil, err
 	}
 
-	// If there is a differnce detected (some results) then report this as successful
+	// If there is a difference detected (some results) then report this as successful
 	return len(diff) != 0, fuzzedResponse, nil
 }
 

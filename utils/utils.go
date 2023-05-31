@@ -20,7 +20,7 @@ type Options struct {
 }
 
 type Job struct {
-	Baseline string
+	Baseline *FuzzResult
 	Domain   string
 	Ip       string
 	Path     string
@@ -71,21 +71,21 @@ func EnumerateVhosts(opts *Options) {
 
 func worker(opts *Options, jobs chan Job, wg *sync.WaitGroup) {
 	for job := range jobs {
-		result, resp, err := TestDomain(job.Ip, job.Tls, job.Domain, job.Port, job.Path, job.Baseline)
+		result, resp, err := TestDomain(job.Ip, job.Tls, job.Domain, job.Port, job.Path, job.Baseline.Response)
 		if err != nil {
-			fmt.Printf("[!] [%s] [%s] %s -> %s\n", job.Ip, job.Path, job.Domain, err.Error())
+			fmt.Printf("[!] [%s] [%s] [%d] [%d] %s -> %s\n", job.Ip, job.Path, job.Domain, resp.Status, resp.ContentLength, err.Error())
 		} else if result == true {
 			if opts.Verify {
-				if CompareGeneric(opts, job.Domain, resp) {
-					fmt.Printf("[+] [%s] [%s] %s\n", job.Ip, job.Path, job.Domain)
+				if CompareGeneric(opts, job.Domain, resp.Response) {
+					fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
 				} else {
-					fmt.Printf("[-] [%s] [%s] %s is different than the baseline, but is not different than public facing domain\n", job.Ip, job.Path, job.Domain)
+					fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is different than the baseline, but is not different than public facing domain\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
 				}
 			} else {
-				fmt.Printf("[+] [%s] [%s] %s\n", job.Ip, job.Path, job.Domain)
+				fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
 			}
 		} else if opts.Verbose {
-			fmt.Printf("[-] [%s] [%s] %s is not different than the baseline\n", job.Ip, job.Path, job.Domain)
+			fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is not different than the baseline\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
 		}
 		wg.Done()
 	}
