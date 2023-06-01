@@ -8,18 +8,19 @@ import (
 )
 
 type Options struct {
-	Domains  []string
-	Headers  []string
-	Ips      []string
-	Paths    []string
-	Port     int
-	Proxy    string
-	Threads  int
-	Timeout  int
-	Tls      bool
-	Verbose  bool
-	Verify   bool
-	Wordlist []string
+	BaselineInterval int
+	Domains          []string
+	Headers          []string
+	Ips              []string
+	Paths            []string
+	Port             int
+	Proxy            string
+	Threads          int
+	Timeout          int
+	Tls              bool
+	Verbose          bool
+	Verify           bool
+	Wordlist         []string
 }
 
 type Job struct {
@@ -44,23 +45,38 @@ func EnumerateVhosts(opts *Options) {
 		go worker(fuzzer, threadChan, &wg)
 	}
 
+	interval := opts.BaselineInterval
+
 	for _, ip := range opts.Ips {
+		shouldContinue := true
 		for _, path := range opts.Paths {
+			var lastDomain string
 			baseUrl := fuzzer.GetBaseUrl(ip, path)
-			if opts.Verbose {
-				fmt.Printf("[!] Obtaining baseline on: %s\n", baseUrl)
-			}
-			baseline, err := fuzzer.FuzzHost(ip, uuid.NewString(), path)
+			baseline, err := takeBaseline(fuzzer, ip, lastDomain, path)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
 			} else {
-				for _, domain := range domains {
-					wg.Add(1)
-					threadChan <- Job{
-						Baseline: baseline,
-						Domain:   domain,
-						Ip:       ip,
-						Path:     path,
+				for i, domain := range domains {
+					// If the baseline interval is (1-100], obtain a new baseline at the given percentage of domains
+					if interval > 0 {
+						if int(i%(interval*len(domains)/100)) == 0 {
+							baseline, err = takeBaseline(fuzzer, ip, lastDomain, path)
+							if err != nil {
+								fmt.Printf("[!] Failed to re-obtain baseline (%s): %s\n", baseUrl, err.Error())
+								shouldContinue = false
+							}
+						}
+					}
+
+					if shouldContinue {
+						wg.Add(1)
+						threadChan <- Job{
+							Baseline: baseline,
+							Domain:   domain,
+							Ip:       ip,
+							Path:     path,
+						}
+						lastDomain = domain
 					}
 				}
 			}
@@ -68,6 +84,25 @@ func EnumerateVhosts(opts *Options) {
 	}
 	wg.Wait()
 	close(threadChan)
+}
+
+func takeBaseline(fuzzer *Fuzzer, ip string, domain string, path string) (*FuzzResult, error) {
+	var baseline *FuzzResult
+	var err error
+	baseUrl := fuzzer.GetBaseUrl(ip, path)
+	if fuzzer.Options.Verbose {
+		fmt.Printf("[!] Obtaining baseline on: %s\n", baseUrl)
+	}
+
+	if domain != "" {
+		baseline, err = fuzzer.FuzzHost(ip, fmt.Sprintf("%s.%s", uuid.NewString(), domain), path)
+	} else {
+		baseline, err = fuzzer.FuzzHost(ip, uuid.NewString(), path)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return baseline, nil
 }
 
 func worker(f *Fuzzer, jobs chan Job, wg *sync.WaitGroup) {

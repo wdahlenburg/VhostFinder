@@ -10,20 +10,21 @@ import (
 )
 
 type options struct {
-	domains  goflags.StringSlice
-	headers  goflags.StringSlice
-	ip       goflags.StringSlice
-	ips      goflags.StringSlice
-	path     goflags.StringSlice
-	paths    goflags.StringSlice
-	port     int
-	proxy    string
-	threads  int
-	timeout  int
-	tls      bool
-	verbose  bool
-	verify   bool
-	wordlist goflags.StringSlice
+	baselineInterval int
+	domains          goflags.StringSlice
+	headers          goflags.StringSlice
+	ip               goflags.StringSlice
+	ips              goflags.StringSlice
+	path             goflags.StringSlice
+	paths            goflags.StringSlice
+	port             int
+	proxy            string
+	threads          int
+	timeout          int
+	tls              bool
+	verbose          bool
+	verify           bool
+	wordlist         goflags.StringSlice
 }
 
 func main() {
@@ -42,6 +43,7 @@ func main() {
 		flagSet.StringSliceVar(&opt.wordlist, "wordlist", nil, "File of FQDNs or subdomain prefixes to fuzz for", goflags.FileStringSliceOptions),
 	)
 
+	flagSet.IntVar(&opt.baselineInterval, "baseline-interval", -1, "Percentage (1-100) of how often to re-establish baseline response")
 	flagSet.StringSliceVarP(&opt.domains, "domain", "d", nil, "Domain(s) to append to a subdomain wordlist (Ex: example1.com)", goflags.StringSliceOptions)
 	flagSet.StringSliceVarP(&opt.headers, "header", "H", nil, "Custom header(s) for each request", goflags.StringSliceOptions)
 	flagSet.StringSliceVarP(&opt.path, "path", "p", nil, "Custom path(s) to send during fuzzing", goflags.StringSliceOptions)
@@ -67,6 +69,11 @@ func main() {
 		return
 	}
 
+	if opt.baselineInterval > 100 || opt.baselineInterval == 0 {
+		fmt.Println("[!] Error: baseline-interval must be less than or equal to 100 percent")
+		return
+	}
+
 	for _, ip := range append(opt.ips, opt.ip...) {
 		ip = strings.TrimSpace(ip)
 		if len(ip) > 0 {
@@ -88,18 +95,19 @@ func main() {
 
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
-		Domains:  opt.domains,
-		Headers:  opt.headers,
-		Ips:      ips,
-		Paths:    paths,
-		Port:     opt.port,
-		Proxy:    opt.proxy,
-		Threads:  opt.threads,
-		Timeout:  opt.timeout,
-		Tls:      opt.tls,
-		Verbose:  opt.verbose,
-		Verify:   opt.verify,
-		Wordlist: opt.wordlist,
+		BaselineInterval: opt.baselineInterval,
+		Domains:          opt.domains,
+		Headers:          opt.headers,
+		Ips:              ips,
+		Paths:            paths,
+		Port:             opt.port,
+		Proxy:            opt.proxy,
+		Threads:          opt.threads,
+		Timeout:          opt.timeout,
+		Tls:              opt.tls,
+		Verbose:          opt.verbose,
+		Verify:           opt.verify,
+		Wordlist:         opt.wordlist,
 	}
 	utils.EnumerateVhosts(opts)
 }
