@@ -27,6 +27,7 @@ OTHER OPTIONS:
    -port int             Port to use (default 443)
    -proxy string         Proxy (Ex: http://127.0.0.1:8080)
    -t, -threads int      Number of threads to use (default 10)
+   -timeout int          Timeout per HTTP request (default 8)
    -tls                  Use TLS (default true)
    -v, -verbose          Verbose mode
    -verify               Verify vhost is different than public url

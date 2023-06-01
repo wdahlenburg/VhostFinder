@@ -19,6 +19,7 @@ type options struct {
 	port     int
 	proxy    string
 	threads  int
+	timeout  int
 	tls      bool
 	verbose  bool
 	verify   bool
@@ -48,6 +49,7 @@ func main() {
 	flagSet.IntVar(&opt.port, "port", 443, "Port to use")
 	flagSet.StringVar(&opt.proxy, "proxy", "", "Proxy (Ex: http://127.0.0.1:8080)")
 	flagSet.IntVarP(&opt.threads, "threads", "t", 10, "Number of threads to use")
+	flagSet.IntVar(&opt.timeout, "timeout", 8, "Timeout per HTTP request")
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
 	flagSet.BoolVarP(&opt.verbose, "verbose", "v", false, "Verbose mode")
 	flagSet.BoolVar(&opt.verify, "verify", false, "Verify vhost is different than public url")
@@ -93,6 +95,7 @@ func main() {
 		Port:     opt.port,
 		Proxy:    opt.proxy,
 		Threads:  opt.threads,
+		Timeout:  opt.timeout,
 		Tls:      opt.tls,
 		Verbose:  opt.verbose,
 		Verify:   opt.verify,

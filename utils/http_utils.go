@@ -14,39 +14,46 @@ import (
 	"github.com/wdahlenburg/HttpComparison"
 )
 
+type Fuzzer struct {
+	Client  *http.Client
+	Options *Options
+}
+
 type FuzzResult struct {
 	ContentLength int64
 	Response      string
 	Status        int
 }
 
-func FuzzHost(opts *Options, ip string, tls bool, domain string, port int, path string) (*FuzzResult, error) {
-	url := ""
+func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, error) {
+	tls := f.Options.Tls
+	port := f.Options.Port
+
+	uri := ""
 	if tls {
-		url += fmt.Sprintf("https://%s", ip)
+		uri += fmt.Sprintf("https://%s", ip)
 	} else {
-		url += fmt.Sprintf("http://%s", ip)
+		uri += fmt.Sprintf("http://%s", ip)
 	}
 
 	if tls && port != 443 {
-		url += fmt.Sprintf(":%d", port)
+		uri += fmt.Sprintf(":%d", port)
 	} else if !tls && port != 80 {
-		url += fmt.Sprintf(":%d", port)
+		uri += fmt.Sprintf(":%d", port)
 	}
 
-	url += path
+	uri += path
 
-	client := getClient(opts, ip, port)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
-	setHeaders(req, opts)
+	f.setHeaders(req)
 
 	// Override the host header
 	req.Host = domain
 
-	resp, err := client.Do(req)
+	resp, err := f.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +71,8 @@ func FuzzHost(opts *Options, ip string, tls bool, domain string, port int, path 
 	}, nil
 }
 
-func TestDomain(opts *Options, ip string, tls bool, domain string, port int, path string, baseline string) (bool, *FuzzResult, error) {
-	fuzzedResponse, err := FuzzHost(opts, ip, tls, domain, port, path)
+func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
+	fuzzedResponse, err := f.FuzzHost(ip, domain, path)
 	if err != nil {
 		return false, nil, err
 	}
@@ -86,49 +93,19 @@ func TestDomain(opts *Options, ip string, tls bool, domain string, port int, pat
 	return len(diff) != 0, fuzzedResponse, nil
 }
 
-func getGeneric(opts *Options, domain string, path string) (string, error) {
+func (f *Fuzzer) getGeneric(domain string, path string) (string, error) {
 	uri := fmt.Sprintf("https://%s%s", domain, path)
-	if opts.Tls == false {
+	if f.Options.Tls == false {
 		uri = fmt.Sprintf("http://%s%s", domain, path)
 	}
 
-	dialer := &net.Dialer{
-		Timeout:   10 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-
-	tr := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return dialer.DialContext(ctx, network, addr)
-		},
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-	}
-
-	if opts.Proxy != "" {
-		proxy, err := url.Parse(opts.Proxy)
-		if err != nil {
-			return "", err
-		}
-		tr.Proxy = http.ProxyURL(proxy)
-	}
-
-	client := &http.Client{
-		Transport: tr,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return "", err
 	}
-	setHeaders(req, opts)
+	f.setHeaders(req)
 
-	resp, err := client.Do(req)
+	resp, err := f.Client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -142,8 +119,8 @@ func getGeneric(opts *Options, domain string, path string) (string, error) {
 	return string(result), nil
 }
 
-func CompareGeneric(opts *Options, domain string, path string, resp string) bool {
-	publicResp, err := getGeneric(opts, domain, path)
+func (f *Fuzzer) CompareGeneric(domain string, path string, resp string) bool {
+	publicResp, err := f.getGeneric(domain, path)
 	if err != nil {
 		// DNS failure or timeout occurs then return true
 		fmt.Printf("[!] %s\n", err.Error())
@@ -166,10 +143,31 @@ func CompareGeneric(opts *Options, domain string, path string, resp string) bool
 	return len(diff) != 0
 }
 
-func getClient(opts *Options, ip string, port int) *http.Client {
+func (f *Fuzzer) GetBaseUrl(ip string, path string) string {
+	scheme := "http"
+	if f.Options.Tls {
+		scheme += "s"
+	}
+	return fmt.Sprintf("%s://%s:%d%s", scheme, ip, f.Options.Port, path)
+}
+
+func (f *Fuzzer) setHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", "VhostFinder")
+	for _, v := range f.Options.Headers {
+		parts := strings.SplitN(v, ":", 2)
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+
+		if strings.ToLower(key) != "host" {
+			req.Header.Set(key, val)
+		}
+	}
+}
+
+func getClient(opts *Options) *http.Client {
 	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
+		Timeout:   time.Duration(opts.Timeout) * time.Second,
+		KeepAlive: time.Duration(opts.Timeout) * 2 * time.Second,
 	}
 
 	tr := &http.Transport{
@@ -177,8 +175,8 @@ func getClient(opts *Options, ip string, port int) *http.Client {
 			return dialer.DialContext(ctx, network, addr)
 		},
 		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		IdleConnTimeout:       time.Duration(opts.Timeout) * time.Second,
+		TLSHandshakeTimeout:   time.Duration(opts.Timeout) * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
@@ -200,25 +198,4 @@ func getClient(opts *Options, ip string, port int) *http.Client {
 	}
 
 	return webclient
-}
-
-func setHeaders(req *http.Request, opts *Options) {
-	req.Header.Set("User-Agent", "VhostFinder")
-	for _, v := range opts.Headers {
-		parts := strings.SplitN(v, ":", 2)
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-
-		if strings.ToLower(key) != "host" {
-			req.Header.Set(key, val)
-		}
-	}
-}
-
-func GetBaseUrl(opts *Options, ip string, path string) string {
-	scheme := "http"
-	if opts.Tls {
-		scheme += "s"
-	}
-	return fmt.Sprintf("%s://%s:%d%s", scheme, ip, opts.Port, path)
 }
