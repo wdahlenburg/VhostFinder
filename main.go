@@ -37,7 +37,7 @@ func main() {
 	opt := &options{}
 
 	flagSet.CreateGroup("required", "Required",
-		flagSet.StringSliceVarP(&opt.ip, "ip", "", nil, "IP Address to Fuzz", goflags.StringSliceOptions),
+		flagSet.StringSliceVar(&opt.ip, "ip", nil, "IP Address to Fuzz", goflags.StringSliceOptions),
 		flagSet.StringSliceVar(&opt.ips, "ips", nil, "File list of IPs", goflags.FileStringSliceOptions),
 		flagSet.StringSliceVar(&opt.wordlist, "wordlist", nil, "File of FQDNs or subdomain prefixes to fuzz for", goflags.FileStringSliceOptions),
 	)

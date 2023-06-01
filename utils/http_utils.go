@@ -139,7 +139,7 @@ func (f *Fuzzer) CompareGeneric(domain string, path string, resp string) bool {
 		return true
 	}
 
-	// If there is a differnce detected (some results) then report this as successful
+	// If there is a difference detected (some results) then report this as successful
 	return len(diff) != 0
 }
 
@@ -164,7 +164,7 @@ func (f *Fuzzer) setHeaders(req *http.Request) {
 	}
 }
 
-func getClient(opts *Options) *http.Client {
+func GetClient(opts *Options) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   time.Duration(opts.Timeout) * time.Second,
 		KeepAlive: time.Duration(opts.Timeout) * 2 * time.Second,

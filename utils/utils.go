@@ -37,7 +37,7 @@ func EnumerateVhosts(opts *Options) {
 
 	fuzzer := &Fuzzer{
 		Options: opts,
-		Client:  getClient(opts),
+		Client:  GetClient(opts),
 	}
 
 	for i := 0; i < cap(threadChan); i++ {
@@ -50,7 +50,14 @@ func EnumerateVhosts(opts *Options) {
 			if opts.Verbose {
 				fmt.Printf("[!] Obtaining baseline on: %s\n", baseUrl)
 			}
-			baseline, err := fuzzer.FuzzHost(ip, uuid.NewString(), path)
+			// Best effort UUID.{domain}, which is a slight improvement over just UUID
+			var domain string
+			if len(domains) > 0 {
+				domain = fmt.Sprintf("%s.%s", uuid.NewString(), domains[0])
+			} else {
+				domain = uuid.NewString()
+			}
+			baseline, err := fuzzer.FuzzHost(ip, domain, path)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
 			} else {
@@ -74,7 +81,7 @@ func worker(f *Fuzzer, jobs chan Job, wg *sync.WaitGroup) {
 	for job := range jobs {
 		result, resp, err := f.TestDomain(job.Ip, job.Domain, job.Path, job.Baseline.Response)
 		if err != nil {
-			fmt.Printf("[!] [%s] [%s] [%d] [%d] %s -> %s\n", job.Ip, job.Path, job.Domain, resp.Status, resp.ContentLength, err.Error())
+			fmt.Printf("[!] [%s] [%s] [%d] [%d] %s -> %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain, err.Error())
 		} else if result == true {
 			if f.Options.Verify {
 				if f.CompareGeneric(job.Domain, job.Path, resp.Response) {
