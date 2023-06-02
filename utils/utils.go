@@ -80,8 +80,12 @@ func EnumerateVhosts(opts *Options) {
 func worker(f *Fuzzer, jobs chan Job, wg *sync.WaitGroup) {
 	for job := range jobs {
 		result, resp, err := f.TestDomain(job.Ip, job.Domain, job.Path, job.Baseline.Response)
-		if err != nil {
-			fmt.Printf("[!] [%s] [%s] [%d] [%d] %s -> %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain, err.Error())
+		if resp == nil || err != nil {
+			if err != nil {
+				fmt.Printf("[!] [%s] [%s] [0] [0] %s -> %s\n", job.Ip, job.Path, job.Domain, err.Error())
+			} else {
+				fmt.Printf("[!] [%s] [%s] [0] [0] %s -> Error generating response\n", job.Ip, job.Path, job.Domain)
+			}
 		} else if result == true {
 			if f.Options.Verify {
 				if f.CompareGeneric(job.Domain, job.Path, resp.Response) {

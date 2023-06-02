@@ -73,7 +73,7 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 
 func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
 	fuzzedResponse, err := f.FuzzHost(ip, domain, path)
-	if err != nil {
+	if fuzzedResponse == nil || err != nil {
 		return false, nil, err
 	}
 
