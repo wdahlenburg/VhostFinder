@@ -10,8 +10,10 @@ import (
 )
 
 type options struct {
+	baselineContext  bool
 	baselineInterval int
 	domains          goflags.StringSlice
+	force            bool
 	headers          goflags.StringSlice
 	ip               goflags.StringSlice
 	ips              goflags.StringSlice
@@ -22,6 +24,7 @@ type options struct {
 	threads          int
 	timeout          int
 	tls              bool
+	similarity       int
 	verbose          bool
 	verify           bool
 	wordlist         goflags.StringSlice
@@ -38,13 +41,19 @@ func main() {
 	opt := &options{}
 
 	flagSet.CreateGroup("required", "Required",
-		flagSet.StringSliceVarP(&opt.ip, "ip", "", nil, "IP Address to Fuzz", goflags.StringSliceOptions),
+		flagSet.StringSliceVar(&opt.ip, "ip", nil, "IP Address to Fuzz", goflags.StringSliceOptions),
 		flagSet.StringSliceVar(&opt.ips, "ips", nil, "File list of IPs", goflags.FileStringSliceOptions),
 		flagSet.StringSliceVar(&opt.wordlist, "wordlist", nil, "File of FQDNs or subdomain prefixes to fuzz for", goflags.FileStringSliceOptions),
 	)
 
-	flagSet.IntVar(&opt.baselineInterval, "baseline-interval", -1, "Percentage (1-100) of how often to re-establish baseline response")
+	flagSet.CreateGroup("advanced", "Advanced",
+		flagSet.BoolVar(&opt.baselineContext, "baseline-context", true, "Use the first (permuted) domain as part of the baseline guess"),
+		flagSet.IntVar(&opt.baselineInterval, "baseline-interval", -1, "Percentage (1-100) of how often to re-establish baseline response"),
+		flagSet.IntVar(&opt.similarity, "similarity", 50, "Percentage (0-100) to calculate differences in similarity (Lower percent is stricter)"),
+	)
+
 	flagSet.StringSliceVarP(&opt.domains, "domain", "d", nil, "Domain(s) to append to a subdomain wordlist (Ex: example1.com)", goflags.StringSliceOptions)
+	flagSet.BoolVar(&opt.force, "force", false, "Force bruteforce when baseline fails")
 	flagSet.StringSliceVarP(&opt.headers, "header", "H", nil, "Custom header(s) for each request", goflags.StringSliceOptions)
 	flagSet.StringSliceVarP(&opt.path, "path", "p", nil, "Custom path(s) to send during fuzzing", goflags.StringSliceOptions)
 	flagSet.StringSliceVar(&opt.paths, "paths", nil, "File list of custom paths", goflags.FileStringSliceOptions)
@@ -74,6 +83,11 @@ func main() {
 		return
 	}
 
+	if opt.similarity < 0 || opt.similarity > 100 {
+		fmt.Println("[!] Error: similarity percentage must be between 0 and 100")
+		return
+	}
+
 	for _, ip := range append(opt.ips, opt.ip...) {
 		ip = strings.TrimSpace(ip)
 		if len(ip) > 0 {
@@ -95,8 +109,10 @@ func main() {
 
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
+		BaselineContext:  opt.baselineContext,
 		BaselineInterval: opt.baselineInterval,
 		Domains:          opt.domains,
+		Force:            opt.force,
 		Headers:          opt.headers,
 		Ips:              ips,
 		Paths:            paths,
@@ -105,6 +121,7 @@ func main() {
 		Threads:          opt.threads,
 		Timeout:          opt.timeout,
 		Tls:              opt.tls,
+		Similarity:       float64(opt.similarity) / 100.00,
 		Verbose:          opt.verbose,
 		Verify:           opt.verify,
 		Wordlist:         opt.wordlist,

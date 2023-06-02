@@ -1,6 +1,10 @@
 # VhostFinder
 This tool will identify virtual hosts by performing a similarity comparison. It will generate a baseline request to attempt to map a non-existent virtual host. From there it will iterate over the supplied domains and compare them for any differences. Any significant differences will result in a virtual host being detected.
 
+Please note that while this tool supports directory enumeration, there are better tools available to perform directory fuzzing once a vhost is identified.
+
+A valid vhost record can be added to your `/etc/hosts` file or inserted into a DNS server to be used with other tools.
+
 # Install
 
 ```

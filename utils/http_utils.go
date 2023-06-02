@@ -73,7 +73,7 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 
 func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
 	fuzzedResponse, err := f.FuzzHost(ip, domain, path)
-	if err != nil {
+	if fuzzedResponse == nil || err != nil {
 		return false, nil, err
 	}
 
@@ -81,7 +81,7 @@ func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline stri
 	responses = append(responses, fuzzedResponse.Response)
 
 	similarity_scanner := &HttpComparison.Similarity{
-		Threshhold: 0.50,
+		Threshhold: f.Options.Similarity,
 	}
 	diff, err := similarity_scanner.CompareStrResponses(baseline, responses)
 	if err != nil {
@@ -131,7 +131,7 @@ func (f *Fuzzer) CompareGeneric(domain string, path string, resp string) bool {
 	responses = append(responses, resp)
 
 	similarity_scanner := &HttpComparison.Similarity{
-		Threshhold: 0.50,
+		Threshhold: f.Options.Similarity,
 	}
 	diff, err := similarity_scanner.CompareStrResponses(publicResp, responses)
 	if err != nil {
@@ -139,7 +139,7 @@ func (f *Fuzzer) CompareGeneric(domain string, path string, resp string) bool {
 		return true
 	}
 
-	// If there is a differnce detected (some results) then report this as successful
+	// If there is a difference detected (some results) then report this as successful
 	return len(diff) != 0
 }
 
@@ -164,16 +164,16 @@ func (f *Fuzzer) setHeaders(req *http.Request) {
 	}
 }
 
-func getClient(opts *Options) *http.Client {
+func GetClient(opts *Options) *http.Client {
 	dialer := &net.Dialer{
-		Timeout:   time.Duration(opts.Timeout) * time.Second,
-		KeepAlive: time.Duration(opts.Timeout) * 2 * time.Second,
+		Timeout: time.Duration(opts.Timeout) * time.Second,
 	}
 
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, network, addr)
 		},
+		DisableKeepAlives:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       time.Duration(opts.Timeout) * time.Second,
 		TLSHandshakeTimeout:   time.Duration(opts.Timeout) * time.Second,
