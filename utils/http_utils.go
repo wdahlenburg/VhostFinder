@@ -166,14 +166,14 @@ func (f *Fuzzer) setHeaders(req *http.Request) {
 
 func GetClient(opts *Options) *http.Client {
 	dialer := &net.Dialer{
-		Timeout:   time.Duration(opts.Timeout) * time.Second,
-		KeepAlive: time.Duration(opts.Timeout) * 2 * time.Second,
+		Timeout: time.Duration(opts.Timeout) * time.Second,
 	}
 
 	tr := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, network, addr)
 		},
+		DisableKeepAlives:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       time.Duration(opts.Timeout) * time.Second,
 		TLSHandshakeTimeout:   time.Duration(opts.Timeout) * time.Second,

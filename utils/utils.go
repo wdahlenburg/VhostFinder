@@ -9,6 +9,7 @@ import (
 
 type Options struct {
 	Domains  []string
+	Force    bool
 	Headers  []string
 	Ips      []string
 	Paths    []string
@@ -60,7 +61,15 @@ func EnumerateVhosts(opts *Options) {
 			baseline, err := fuzzer.FuzzHost(ip, domain, path)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
-			} else {
+			}
+			if err == nil || (err != nil && opts.Force == true) {
+				if opts.Force == true && baseline == nil {
+					baseline = &FuzzResult{
+						ContentLength: 0,
+						Response:      "",
+						Status:        0,
+					}
+				}
 				for _, domain := range domains {
 					wg.Add(1)
 					threadChan <- Job{

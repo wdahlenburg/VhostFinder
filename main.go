@@ -11,6 +11,7 @@ import (
 
 type options struct {
 	domains  goflags.StringSlice
+	force    bool
 	headers  goflags.StringSlice
 	ip       goflags.StringSlice
 	ips      goflags.StringSlice
@@ -43,6 +44,7 @@ func main() {
 	)
 
 	flagSet.StringSliceVarP(&opt.domains, "domain", "d", nil, "Domain(s) to append to a subdomain wordlist (Ex: example1.com)", goflags.StringSliceOptions)
+	flagSet.BoolVar(&opt.force, "force", false, "Force bruteforce when baseline fails")
 	flagSet.StringSliceVarP(&opt.headers, "header", "H", nil, "Custom header(s) for each request", goflags.StringSliceOptions)
 	flagSet.StringSliceVarP(&opt.path, "path", "p", nil, "Custom path(s) to send during fuzzing", goflags.StringSliceOptions)
 	flagSet.StringSliceVar(&opt.paths, "paths", nil, "File list of custom paths", goflags.FileStringSliceOptions)
@@ -89,6 +91,7 @@ func main() {
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
 		Domains:  opt.domains,
+		Force:    opt.force,
 		Headers:  opt.headers,
 		Ips:      ips,
 		Paths:    paths,
