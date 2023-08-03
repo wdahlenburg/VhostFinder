@@ -15,6 +15,7 @@ type Options struct {
 	Paths    []string
 	Port     int
 	Proxy    string
+	Sni      bool
 	Threads  int
 	Timeout  int
 	Tls      bool
@@ -38,7 +39,7 @@ func EnumerateVhosts(opts *Options) {
 
 	fuzzer := &Fuzzer{
 		Options: opts,
-		Client:  GetClient(opts),
+		Client:  GetClient(opts, ""),
 	}
 
 	for i := 0; i < cap(threadChan); i++ {

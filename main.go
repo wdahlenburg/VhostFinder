@@ -19,6 +19,7 @@ type options struct {
 	paths    goflags.StringSlice
 	port     int
 	proxy    string
+	sni      bool
 	threads  int
 	timeout  int
 	tls      bool
@@ -50,6 +51,7 @@ func main() {
 	flagSet.StringSliceVar(&opt.paths, "paths", nil, "File list of custom paths", goflags.FileStringSliceOptions)
 	flagSet.IntVar(&opt.port, "port", 443, "Port to use")
 	flagSet.StringVar(&opt.proxy, "proxy", "", "Proxy (Ex: http://127.0.0.1:8080)")
+	flagSet.BoolVar(&opt.sni, "sni", false, "Use SNI ServerName")
 	flagSet.IntVarP(&opt.threads, "threads", "t", 10, "Number of threads to use")
 	flagSet.IntVar(&opt.timeout, "timeout", 8, "Timeout per HTTP request")
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
@@ -67,6 +69,10 @@ func main() {
 		fmt.Println()
 		fmt.Println("[!] Please ensure that IPs are set with either the \"ip\" or \"ips\" flags. Also include the \"wordlist\" flag.")
 		return
+	}
+
+	if opt.sni == true && opt.proxy != "" {
+		fmt.Printf("[!] SNI will not work with a proxy unless manual DNS records are set\n")
 	}
 
 	for _, ip := range append(opt.ips, opt.ip...) {
@@ -97,6 +103,7 @@ func main() {
 		Paths:    paths,
 		Port:     opt.port,
 		Proxy:    opt.proxy,
+		Sni:      opt.sni,
 		Threads:  opt.threads,
 		Timeout:  opt.timeout,
 		Tls:      opt.tls,

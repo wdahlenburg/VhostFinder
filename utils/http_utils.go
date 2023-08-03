@@ -50,10 +50,18 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 	}
 	f.setHeaders(req)
 
-	// Override the host header
-	req.Host = domain
+	var client *http.Client
 
-	resp, err := f.Client.Do(req)
+	if f.Options.Sni {
+		req.Host = ip
+		client = GetClient(f.Options, domain)
+	} else {
+		// Override the host header
+		req.Host = domain
+		client = GetClient(f.Options, domain)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +172,7 @@ func (f *Fuzzer) setHeaders(req *http.Request) {
 	}
 }
 
-func GetClient(opts *Options) *http.Client {
+func GetClient(opts *Options, host string) *http.Client {
 	dialer := &net.Dialer{
 		Timeout: time.Duration(opts.Timeout) * time.Second,
 	}
@@ -178,7 +186,7 @@ func GetClient(opts *Options) *http.Client {
 		IdleConnTimeout:       time.Duration(opts.Timeout) * time.Second,
 		TLSHandshakeTimeout:   time.Duration(opts.Timeout) * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true, ServerName: host},
 	}
 
 	if opts.Proxy != "" {
