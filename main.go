@@ -115,5 +115,9 @@ func main() {
 		Verify:   opt.verify,
 		Wordlist: opt.wordlist,
 	}
-	utils.EnumerateVhosts(opts)
+	if len(opts.Sni) > 0 {
+		utils.EnumerateSNI(opts)
+	} else {
+		utils.EnumerateVhosts(opts)
+	}
 }

@@ -34,7 +34,6 @@ type Job struct {
 
 func EnumerateVhosts(opts *Options) {
 	domains := PermuteDomains(opts.Wordlist, opts.Domains)
-	snis := PermuteDomains(opts.Sni, opts.Domains)
 
 	threadChan := make(chan Job, opts.Threads)
 	var wg sync.WaitGroup
@@ -73,9 +72,66 @@ func EnumerateVhosts(opts *Options) {
 						Status:        0,
 					}
 				}
+				for _, domain := range domains {
+					wg.Add(1)
+					threadChan <- Job{
+						Baseline: baseline,
+						Domain:   domain,
+						Ip:       ip,
+						Path:     path,
+					}
+				}
+			}
+		}
+	}
+	wg.Wait()
+	close(threadChan)
+}
+
+func EnumerateSNI(opts *Options) {
+	domains := PermuteDomains(opts.Wordlist, opts.Domains)
+	snis := PermuteDomains(opts.Sni, opts.Domains)
+
+	threadChan := make(chan Job, opts.Threads)
+	var wg sync.WaitGroup
+
+	fuzzer := &Fuzzer{
+		Options: opts,
+		Client:  GetClient(opts, ""),
+	}
+
+	for i := 0; i < cap(threadChan); i++ {
+		go worker(fuzzer, threadChan, &wg)
+	}
+
+	for _, ip := range opts.Ips {
+		for _, domain := range domains {
+			for _, path := range opts.Paths {
+				baseUrl := fuzzer.GetBaseUrl(ip, path)
+				if opts.Verbose {
+					fmt.Printf("[!] Obtaining SNI baseline with fixed vhost [%s]: %s\n", domain, baseUrl)
+				}
+				// Best effort UUID.{sni}, which is a slight improvement over just UUID
+				var sni string
 				if len(snis) > 0 {
-					for _, sni := range snis {
-						for _, domain := range domains {
+					sni = fmt.Sprintf("%s.%s", uuid.NewString(), snis[0])
+				} else {
+					sni = uuid.NewString()
+				}
+				baseline, err := fuzzer.FuzzHost(ip, sni, domain, path)
+				if err != nil {
+					fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
+				}
+				if err == nil || (err != nil && opts.Force == true) {
+					if opts.Force == true && baseline == nil {
+						baseline = &FuzzResult{
+							ContentLength: 0,
+							Response:      "",
+							Status:        0,
+						}
+					}
+					if len(snis) > 0 {
+						for _, sni := range snis {
 							if domain != sni {
 								wg.Add(1)
 								threadChan <- Job{
@@ -86,16 +142,6 @@ func EnumerateVhosts(opts *Options) {
 									Path:     path,
 								}
 							}
-						}
-					}
-				} else {
-					for _, domain := range domains {
-						wg.Add(1)
-						threadChan <- Job{
-							Baseline: baseline,
-							Domain:   domain,
-							Ip:       ip,
-							Path:     path,
 						}
 					}
 				}
