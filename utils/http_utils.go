@@ -25,7 +25,7 @@ type FuzzResult struct {
 	Status        int
 }
 
-func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, error) {
+func (f *Fuzzer) FuzzHost(ip string, sni string, domain string, path string) (*FuzzResult, error) {
 	tls := f.Options.Tls
 	port := f.Options.Port
 
@@ -52,12 +52,12 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 
 	var client *http.Client
 
-	if f.Options.Sni {
-		req.Host = ip
-		client = GetClient(f.Options, domain)
+	// Override the host header
+	req.Host = domain
+
+	if sni != "" {
+		client = GetClient(f.Options, sni)
 	} else {
-		// Override the host header
-		req.Host = domain
 		client = GetClient(f.Options, domain)
 	}
 
@@ -79,8 +79,8 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 	}, nil
 }
 
-func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
-	fuzzedResponse, err := f.FuzzHost(ip, domain, path)
+func (f *Fuzzer) TestDomain(ip string, sni string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
+	fuzzedResponse, err := f.FuzzHost(ip, sni, domain, path)
 	if fuzzedResponse == nil || err != nil {
 		return false, nil, err
 	}

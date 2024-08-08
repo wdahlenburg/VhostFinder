@@ -19,7 +19,7 @@ type options struct {
 	paths    goflags.StringSlice
 	port     int
 	proxy    string
-	sni      bool
+	sni      goflags.StringSlice
 	threads  int
 	timeout  int
 	tls      bool
@@ -51,7 +51,7 @@ func main() {
 	flagSet.StringSliceVar(&opt.paths, "paths", nil, "File list of custom paths", goflags.FileStringSliceOptions)
 	flagSet.IntVar(&opt.port, "port", 443, "Port to use")
 	flagSet.StringVar(&opt.proxy, "proxy", "", "Proxy (Ex: http://127.0.0.1:8080)")
-	flagSet.BoolVar(&opt.sni, "sni", false, "Use SNI ServerName")
+	flagSet.StringSliceVar(&opt.sni, "sni", nil, "Enables SNI fuzzing. Supply a wordlist for SNI fuzzing attempts", goflags.FileStringSliceOptions)
 	flagSet.IntVarP(&opt.threads, "threads", "t", 10, "Number of threads to use")
 	flagSet.IntVar(&opt.timeout, "timeout", 8, "Timeout per HTTP request")
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
@@ -71,8 +71,12 @@ func main() {
 		return
 	}
 
-	if opt.sni == true && opt.proxy != "" {
+	if len(opt.sni) > 0 && opt.proxy != "" {
 		fmt.Printf("[!] SNI will not work with a proxy unless manual DNS records are set\n")
+	}
+
+	if len(opt.sni) > 0 && opt.tls == false {
+		fmt.Printf("[!] SNI relies on TLS. Please leave TLS enabled when using SNI.\n")
 	}
 
 	for _, ip := range append(opt.ips, opt.ip...) {

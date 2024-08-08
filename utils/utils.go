@@ -15,7 +15,7 @@ type Options struct {
 	Paths    []string
 	Port     int
 	Proxy    string
-	Sni      bool
+	Sni      []string
 	Threads  int
 	Timeout  int
 	Tls      bool
@@ -26,6 +26,7 @@ type Options struct {
 
 type Job struct {
 	Baseline *FuzzResult
+	Sni      string
 	Domain   string
 	Ip       string
 	Path     string
@@ -33,6 +34,7 @@ type Job struct {
 
 func EnumerateVhosts(opts *Options) {
 	domains := PermuteDomains(opts.Wordlist, opts.Domains)
+	snis := PermuteDomains(opts.Sni, opts.Domains)
 
 	threadChan := make(chan Job, opts.Threads)
 	var wg sync.WaitGroup
@@ -59,7 +61,7 @@ func EnumerateVhosts(opts *Options) {
 			} else {
 				domain = uuid.NewString()
 			}
-			baseline, err := fuzzer.FuzzHost(ip, domain, path)
+			baseline, err := fuzzer.FuzzHost(ip, "", domain, path)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
 			}
@@ -71,13 +73,30 @@ func EnumerateVhosts(opts *Options) {
 						Status:        0,
 					}
 				}
-				for _, domain := range domains {
-					wg.Add(1)
-					threadChan <- Job{
-						Baseline: baseline,
-						Domain:   domain,
-						Ip:       ip,
-						Path:     path,
+				if len(snis) > 0 {
+					for _, sni := range snis {
+						for _, domain := range domains {
+							if domain != sni {
+								wg.Add(1)
+								threadChan <- Job{
+									Baseline: baseline,
+									Sni:      sni,
+									Domain:   domain,
+									Ip:       ip,
+									Path:     path,
+								}
+							}
+						}
+					}
+				} else {
+					for _, domain := range domains {
+						wg.Add(1)
+						threadChan <- Job{
+							Baseline: baseline,
+							Domain:   domain,
+							Ip:       ip,
+							Path:     path,
+						}
 					}
 				}
 			}
@@ -89,25 +108,50 @@ func EnumerateVhosts(opts *Options) {
 
 func worker(f *Fuzzer, jobs chan Job, wg *sync.WaitGroup) {
 	for job := range jobs {
-		result, resp, err := f.TestDomain(job.Ip, job.Domain, job.Path, job.Baseline.Response)
+		result, resp, err := f.TestDomain(job.Ip, job.Sni, job.Domain, job.Path, job.Baseline.Response)
 		if resp == nil || err != nil {
 			if err != nil {
-				fmt.Printf("[!] [%s] [%s] [0] [0] %s -> %s\n", job.Ip, job.Path, job.Domain, err.Error())
+				if job.Sni != "" {
+					fmt.Printf("[!] [%s] [%s] [0] [0] [%s] %s -> %s\n", job.Ip, job.Path, job.Sni, job.Domain, err.Error())
+				} else {
+					fmt.Printf("[!] [%s] [%s] [0] [0] %s -> %s\n", job.Ip, job.Path, job.Domain, err.Error())
+				}
 			} else {
-				fmt.Printf("[!] [%s] [%s] [0] [0] %s -> Error generating response\n", job.Ip, job.Path, job.Domain)
+				if job.Sni != "" {
+					fmt.Printf("[!] [%s] [%s] [0] [0] [%s] %s -> Error generating response\n", job.Ip, job.Path, job.Sni, job.Domain)
+				} else {
+					fmt.Printf("[!] [%s] [%s] [0] [0] %s -> Error generating response\n", job.Ip, job.Path, job.Domain)
+				}
 			}
 		} else if result == true {
 			if f.Options.Verify {
 				if f.CompareGeneric(job.Domain, job.Path, resp.Response) {
-					fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+					if job.Sni != "" && job.Sni != job.Domain {
+						fmt.Printf("[+] [%s] [%s] [%d] [%d] [%s] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Sni, job.Domain)
+					} else {
+						fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+					}
 				} else {
-					fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is different than the baseline, but is not different than public facing domain\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+					if job.Sni != "" && job.Sni != job.Domain {
+						fmt.Printf("[-] [%s] [%s] [%d] [%d] [%s] %s is different than the baseline, but is not different than public facing domain\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Sni, job.Domain)
+					} else {
+
+						fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is different than the baseline, but is not different than public facing domain\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+					}
 				}
 			} else {
-				fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+				if job.Sni != "" && job.Sni != job.Domain {
+					fmt.Printf("[+] [%s] [%s] [%d] [%d] [%s] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Sni, job.Domain)
+				} else {
+					fmt.Printf("[+] [%s] [%s] [%d] [%d] %s\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+				}
 			}
 		} else if f.Options.Verbose {
-			fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is not different than the baseline\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+			if job.Sni != "" && job.Sni != job.Domain {
+				fmt.Printf("[-] [%s] [%s] [%d] [%d] [%s] %s is not different than the baseline\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Sni, job.Domain)
+			} else {
+				fmt.Printf("[-] [%s] [%s] [%d] [%d] %s is not different than the baseline\n", job.Ip, job.Path, resp.Status, resp.ContentLength, job.Domain)
+			}
 		}
 		wg.Done()
 	}

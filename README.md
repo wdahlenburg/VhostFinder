@@ -30,6 +30,7 @@ OTHER OPTIONS:
    -paths string[]       File list of custom paths
    -port int             Port to use (default 443)
    -proxy string         Proxy (Ex: http://127.0.0.1:8080)
+   -sni string[]         Enables SNI fuzzing. Supply a wordlist for SNI fuzzing attempts
    -t, -threads int      Number of threads to use (default 10)
    -timeout int          Timeout per HTTP request (default 8)
    -tls                  Use TLS (default true)
@@ -70,13 +71,24 @@ OTHER OPTIONS:
   [-] [10.8.0.2] [/] [400] [141] test.example.com
   [-] [10.8.0.1] [/admin/] [200] [965] admin.example.com
   [+] [10.8.0.2] [/admin/] [400] [140] test.example.com
+
+  VhostFinder -ip 10.8.0.1 -wordlist subdomains.txt -domain host1.example.com -sni snis.txt -v
+  [!] Finding vhosts!
+  [!] Obtaining baseline on: https://10.8.0.1:443/
+  [+] [10.8.0.1] [/] [200] [31337] [adminpanel.host1.example.com] admin.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [db.host1.example.com] test.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [db.host1.example.com] admin.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [adminpanel.host1.example.com] test.host1.example.com
 ```
 
 Note the output columns indicate the following:
 
 ```
 [success/fail] [ip] [path] [status code] [content length] domain
+[success/fail] [ip] [path] [status code] [content length] [sni] domain
 ```
+
+The last column will always be the vhost unless an error occurs, which will be denoted with `[!]`.
 
 # What is Virtual Host Fuzzing?
 
@@ -90,4 +102,4 @@ Connection: close
 
 ```
 
-The host header is fuzzed based on user input, while all requests are sent to the same IP. 
+The host header is fuzzed based on user input, while all requests are sent to the same IP.
