@@ -24,18 +24,20 @@ REQUIRED:
    -wordlist string[]  File of FQDNs or subdomain prefixes to fuzz for
 
 OTHER OPTIONS:
-   -d, -domain string[]  Optional domain(s) to append to a subdomain wordlist (Ex: example1.com)
-   -H, -header string[]  Custom header(s) for each request
-   -p, -path string[]    Custom path(s) to send during fuzzing (default ["/"])
-   -paths string[]       File list of custom paths
-   -port int             Port to use (default 443)
-   -proxy string         Proxy (Ex: http://127.0.0.1:8080)
-   -sni string[]         Enables SNI fuzzing. Supply a wordlist for SNI fuzzing attempts
-   -t, -threads int      Number of threads to use (default 10)
-   -timeout int          Timeout per HTTP request (default 8)
-   -tls                  Use TLS (default true)
-   -v, -verbose          Verbose mode
-   -verify               Verify vhost is different than public url
+   -d, -domain string[]       Domain(s) to append to a subdomain wordlist (Ex: example1.com)
+   -force                     Force bruteforce when baseline fails
+   -H, -header string[]       Custom header(s) for each request
+   -p, -path string[]         Custom path(s) to send during fuzzing
+   -paths string[]            File list of custom paths
+   -port int                  Port to use (default 443)
+   -proxy string              Proxy (Ex: http://127.0.0.1:8080)
+   -sni string[]              Enables SNI fuzzing. Supply a wordlist for SNI fuzzing attempts
+   -sd, -sni-domain string[]  SNI Domain(s) to append to the sni wordlist (Optional different domains than vhosts)
+   -t, -threads int           Number of threads to use (default 10)
+   -timeout int               Timeout per HTTP request (default 8)
+   -tls                       Use TLS (default true)
+   -v, -verbose               Verbose mode
+   -verify                    Verify vhost is different than public url
 ```
 
 ### Examples:
@@ -79,6 +81,14 @@ OTHER OPTIONS:
   [-] [10.8.0.1] [/] [404] [128] [db.host1.example.com] test.host1.example.com
   [-] [10.8.0.1] [/] [404] [128] [db.host1.example.com] admin.host1.example.com
   [-] [10.8.0.1] [/] [404] [128] [adminpanel.host1.example.com] test.host1.example.com
+
+  VhostFinder -ip 10.8.0.1 -wordlist subdomains.txt -domain host1.example.com -sni snis.txt -sni-domain foobar.com -v
+  [!] Finding vhosts!
+  [!] Obtaining baseline on: https://10.8.0.1:443/
+  [+] [10.8.0.1] [/] [200] [31337] [adminpanel.foobar.com] admin.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [db.foobar.com] test.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [db.foobar.com] admin.host1.example.com
+  [-] [10.8.0.1] [/] [404] [128] [adminpanel.foobar.com] test.host1.example.com
 ```
 
 Note the output columns indicate the following:
@@ -103,3 +113,13 @@ Connection: close
 ```
 
 The host header is fuzzed based on user input, while all requests are sent to the same IP.
+
+# What is SNI Fuzzing?
+
+Server Name Indication (SNI) is a portion of the TLS handshake that is used to specify the host name of the server a client is connecting to.
+
+An SNI proxy will typically read the `server_name` when processing the TLS handshake and then determine where to route the subsequent request. TLS is handled prior to the HTTP protocol, which means the virtual host isn't important to the SNI proxy in most scenarios. Note that backend services may rely on the `Host` header afterwards, so subsequent vhost fuzzing should be done after an SNI route has been identified.
+
+Similar to vhosts, servers can define a default route and any alternate routes based on SNI.
+
+In general, it's recommended to use a small vhost list and guess SNIs on the same or an alternate domain. This will help establish if SNI is routing the request instead of a vhost.

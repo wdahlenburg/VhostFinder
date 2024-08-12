@@ -8,20 +8,21 @@ import (
 )
 
 type Options struct {
-	Domains  []string
-	Force    bool
-	Headers  []string
-	Ips      []string
-	Paths    []string
-	Port     int
-	Proxy    string
-	Sni      []string
-	Threads  int
-	Timeout  int
-	Tls      bool
-	Verbose  bool
-	Verify   bool
-	Wordlist []string
+	Domains    []string
+	Force      bool
+	Headers    []string
+	Ips        []string
+	Paths      []string
+	Port       int
+	Proxy      string
+	Sni        []string
+	SniDomains []string
+	Threads    int
+	Timeout    int
+	Tls        bool
+	Verbose    bool
+	Verify     bool
+	Wordlist   []string
 }
 
 type Job struct {
@@ -90,7 +91,12 @@ func EnumerateVhosts(opts *Options) {
 
 func EnumerateSNI(opts *Options) {
 	domains := PermuteDomains(opts.Wordlist, opts.Domains)
-	snis := PermuteDomains(opts.Sni, opts.Domains)
+	var snis []string
+	if len(opts.SniDomains) > 0 {
+		snis = PermuteDomains(opts.Sni, opts.SniDomains)
+	} else {
+		snis = PermuteDomains(opts.Sni, opts.Domains)
+	}
 
 	threadChan := make(chan Job, opts.Threads)
 	var wg sync.WaitGroup

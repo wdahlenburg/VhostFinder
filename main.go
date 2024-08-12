@@ -10,22 +10,23 @@ import (
 )
 
 type options struct {
-	domains  goflags.StringSlice
-	force    bool
-	headers  goflags.StringSlice
-	ip       goflags.StringSlice
-	ips      goflags.StringSlice
-	path     goflags.StringSlice
-	paths    goflags.StringSlice
-	port     int
-	proxy    string
-	sni      goflags.StringSlice
-	threads  int
-	timeout  int
-	tls      bool
-	verbose  bool
-	verify   bool
-	wordlist goflags.StringSlice
+	domains    goflags.StringSlice
+	force      bool
+	headers    goflags.StringSlice
+	ip         goflags.StringSlice
+	ips        goflags.StringSlice
+	path       goflags.StringSlice
+	paths      goflags.StringSlice
+	port       int
+	proxy      string
+	sni        goflags.StringSlice
+	sniDomains goflags.StringSlice
+	threads    int
+	timeout    int
+	tls        bool
+	verbose    bool
+	verify     bool
+	wordlist   goflags.StringSlice
 }
 
 func main() {
@@ -52,6 +53,7 @@ func main() {
 	flagSet.IntVar(&opt.port, "port", 443, "Port to use")
 	flagSet.StringVar(&opt.proxy, "proxy", "", "Proxy (Ex: http://127.0.0.1:8080)")
 	flagSet.StringSliceVar(&opt.sni, "sni", nil, "Enables SNI fuzzing. Supply a wordlist for SNI fuzzing attempts", goflags.FileStringSliceOptions)
+	flagSet.StringSliceVarP(&opt.sniDomains, "sni-domain", "sd", nil, "SNI Domain(s) to append to the sni wordlist (Optional different domains than vhosts)", goflags.StringSliceOptions)
 	flagSet.IntVarP(&opt.threads, "threads", "t", 10, "Number of threads to use")
 	flagSet.IntVar(&opt.timeout, "timeout", 8, "Timeout per HTTP request")
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
@@ -100,20 +102,21 @@ func main() {
 
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
-		Domains:  opt.domains,
-		Force:    opt.force,
-		Headers:  opt.headers,
-		Ips:      ips,
-		Paths:    paths,
-		Port:     opt.port,
-		Proxy:    opt.proxy,
-		Sni:      opt.sni,
-		Threads:  opt.threads,
-		Timeout:  opt.timeout,
-		Tls:      opt.tls,
-		Verbose:  opt.verbose,
-		Verify:   opt.verify,
-		Wordlist: opt.wordlist,
+		Domains:    opt.domains,
+		Force:      opt.force,
+		Headers:    opt.headers,
+		Ips:        ips,
+		Paths:      paths,
+		Port:       opt.port,
+		Proxy:      opt.proxy,
+		Sni:        opt.sni,
+		SniDomains: opt.sniDomains,
+		Threads:    opt.threads,
+		Timeout:    opt.timeout,
+		Tls:        opt.tls,
+		Verbose:    opt.verbose,
+		Verify:     opt.verify,
+		Wordlist:   opt.wordlist,
 	}
 	if len(opts.Sni) > 0 {
 		utils.EnumerateSNI(opts)
