@@ -19,6 +19,7 @@ type options struct {
 	paths    goflags.StringSlice
 	port     int
 	proxy    string
+	retries  int
 	threads  int
 	timeout  int
 	tls      bool
@@ -50,6 +51,7 @@ func main() {
 	flagSet.StringSliceVar(&opt.paths, "paths", nil, "File list of custom paths", goflags.FileStringSliceOptions)
 	flagSet.IntVar(&opt.port, "port", 443, "Port to use")
 	flagSet.StringVar(&opt.proxy, "proxy", "", "Proxy (Ex: http://127.0.0.1:8080)")
+	flagSet.IntVar(&opt.retries, "retries", 0, "Number of retries per HTTP request")
 	flagSet.IntVarP(&opt.threads, "threads", "t", 10, "Number of threads to use")
 	flagSet.IntVar(&opt.timeout, "timeout", 8, "Timeout per HTTP request")
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
@@ -97,6 +99,7 @@ func main() {
 		Paths:    paths,
 		Port:     opt.port,
 		Proxy:    opt.proxy,
+		Retries:  opt.retries,
 		Threads:  opt.threads,
 		Timeout:  opt.timeout,
 		Tls:      opt.tls,

@@ -16,6 +16,7 @@ type Options struct {
 	Port     int
 	Proxy    string
 	Threads  int
+	Retries  int
 	Timeout  int
 	Tls      bool
 	Verbose  bool
@@ -58,11 +59,11 @@ func EnumerateVhosts(opts *Options) {
 			} else {
 				domain = uuid.NewString()
 			}
-			baseline, err := fuzzer.FuzzHost(ip, domain, path)
+			baseline, err := fuzzer.FuzzHost(ip, domain, path, opts.Retries)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
 			}
-			if err == nil || (err != nil && opts.Force == true) {
+			if err == nil || opts.Force {
 				if opts.Force == true && baseline == nil {
 					baseline = &FuzzResult{
 						ContentLength: 0,

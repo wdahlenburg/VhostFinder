@@ -3,12 +3,17 @@ package utils
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
+	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/wdahlenburg/HttpComparison"
@@ -25,7 +30,7 @@ type FuzzResult struct {
 	Status        int
 }
 
-func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, error) {
+func (f *Fuzzer) FuzzHost(ip string, domain string, path string, retries int) (*FuzzResult, error) {
 	tls := f.Options.Tls
 	port := f.Options.Port
 
@@ -53,7 +58,7 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 	// Override the host header
 	req.Host = domain
 
-	resp, err := f.Client.Do(req)
+	resp, err := f.doRequest(req, retries)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +77,8 @@ func (f *Fuzzer) FuzzHost(ip string, domain string, path string) (*FuzzResult, e
 }
 
 func (f *Fuzzer) TestDomain(ip string, domain string, path string, baseline string) (bool, *FuzzResult, error) {
-	fuzzedResponse, err := f.FuzzHost(ip, domain, path)
+	retries := int(math.Min(float64(f.Options.Retries), 1))
+	fuzzedResponse, err := f.FuzzHost(ip, domain, path, retries)
 	if fuzzedResponse == nil || err != nil {
 		return false, nil, err
 	}
@@ -105,7 +111,8 @@ func (f *Fuzzer) getGeneric(domain string, path string) (string, error) {
 	}
 	f.setHeaders(req)
 
-	resp, err := f.Client.Do(req)
+	retries := int(math.Min(float64(f.Options.Retries), 1))
+	resp, err := f.doRequest(req, retries)
 	if err != nil {
 		return "", err
 	}
@@ -195,7 +202,61 @@ func GetClient(opts *Options) *http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+		Timeout: time.Duration(opts.Timeout) * time.Second,
 	}
 
 	return webclient
+}
+
+func (f *Fuzzer) doRequest(req *http.Request, retries int) (*http.Response, error) {
+	var (
+		resp *http.Response
+		err  error
+	)
+	for i := 0; i <= retries; i++ {
+		if i > 0 {
+			// Random jitter between 0 and 2500ms
+			jitter := time.Duration(rand.Intn(2500)) * time.Millisecond
+			time.Sleep(jitter)
+
+			if f.Options.Verbose {
+				fmt.Printf("[!] Retrying request for %s to %s\n", req.Host, req.URL.String())
+			}
+		}
+		resp, err = f.Client.Do(req)
+		if err == nil {
+			return resp, nil
+		}
+
+		// Check if the error is retryable (Timeout, Connection Reset, Broken Pipe, or EOF)
+		if isRetryable(err) {
+			continue
+		}
+		// Pass all other errors (DNS, TLS, etc.) upstream immediately
+		return nil, err
+	}
+	return nil, err
+}
+
+func isRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Timeout
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		return true
+	}
+
+	// Connection Reset or Broken Pipe
+	if errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE) {
+		return true
+	}
+
+	// EOF
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+
+	return false
 }

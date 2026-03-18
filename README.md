@@ -24,12 +24,14 @@ REQUIRED:
    -wordlist string[]  File of FQDNs or subdomain prefixes to fuzz for
 
 OTHER OPTIONS:
-   -d, -domain string[]  Optional domain(s) to append to a subdomain wordlist (Ex: example1.com)
+   -d, -domain string[]  Domain(s) to append to a subdomain wordlist (Ex: example1.com)
+   -force                Force bruteforce when baseline fails
    -H, -header string[]  Custom header(s) for each request
-   -p, -path string[]    Custom path(s) to send during fuzzing (default ["/"])
+   -p, -path string[]    Custom path(s) to send during fuzzing
    -paths string[]       File list of custom paths
    -port int             Port to use (default 443)
    -proxy string         Proxy (Ex: http://127.0.0.1:8080)
+   -retries int          Number of retries per HTTP request
    -t, -threads int      Number of threads to use (default 10)
    -timeout int          Timeout per HTTP request (default 8)
    -tls                  Use TLS (default true)
