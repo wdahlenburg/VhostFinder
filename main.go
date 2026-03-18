@@ -10,21 +10,22 @@ import (
 )
 
 type options struct {
-	domains  goflags.StringSlice
-	force    bool
-	headers  goflags.StringSlice
-	ip       goflags.StringSlice
-	ips      goflags.StringSlice
-	path     goflags.StringSlice
-	paths    goflags.StringSlice
-	port     int
-	proxy    string
-	threads  int
-	timeout  int
-	tls      bool
-	verbose  bool
-	verify   bool
-	wordlist goflags.StringSlice
+	domains       goflags.StringSlice
+	force         bool
+	headers       goflags.StringSlice
+	ip            goflags.StringSlice
+	ips           goflags.StringSlice
+	path          goflags.StringSlice
+	paths         goflags.StringSlice
+	port          int
+	proxy         string
+	threads       int
+	timeout       int
+	tls           bool
+	verbose       bool
+	verify        bool
+	retryBaseline int
+	wordlist      goflags.StringSlice
 }
 
 func main() {
@@ -55,6 +56,7 @@ func main() {
 	flagSet.BoolVar(&opt.tls, "tls", true, "Use TLS")
 	flagSet.BoolVarP(&opt.verbose, "verbose", "v", false, "Verbose mode")
 	flagSet.BoolVar(&opt.verify, "verify", false, "Verify vhost is different than public url")
+	flagSet.IntVar(&opt.retryBaseline, "retry-baseline", 1, "Number of times to retry a failed baseline")
 
 	if err := flagSet.Parse(); err != nil {
 		fmt.Printf("[!] Could not parse flags: %s\n", err)
@@ -90,19 +92,20 @@ func main() {
 
 	fmt.Printf("[!] Finding vhosts!\n")
 	opts := &utils.Options{
-		Domains:  opt.domains,
-		Force:    opt.force,
-		Headers:  opt.headers,
-		Ips:      ips,
-		Paths:    paths,
-		Port:     opt.port,
-		Proxy:    opt.proxy,
-		Threads:  opt.threads,
-		Timeout:  opt.timeout,
-		Tls:      opt.tls,
-		Verbose:  opt.verbose,
-		Verify:   opt.verify,
-		Wordlist: opt.wordlist,
+		Domains:       opt.domains,
+		Force:         opt.force,
+		Headers:       opt.headers,
+		Ips:           ips,
+		Paths:         paths,
+		Port:          opt.port,
+		Proxy:         opt.proxy,
+		Threads:       opt.threads,
+		Timeout:       opt.timeout,
+		Tls:           opt.tls,
+		Verbose:       opt.verbose,
+		Verify:        opt.verify,
+		RetryBaseline: opt.retryBaseline,
+		Wordlist:      opt.wordlist,
 	}
 	utils.EnumerateVhosts(opts)
 }

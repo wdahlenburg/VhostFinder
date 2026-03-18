@@ -8,19 +8,20 @@ import (
 )
 
 type Options struct {
-	Domains  []string
-	Force    bool
-	Headers  []string
-	Ips      []string
-	Paths    []string
-	Port     int
-	Proxy    string
-	Threads  int
-	Timeout  int
-	Tls      bool
-	Verbose  bool
-	Verify   bool
-	Wordlist []string
+	Domains       []string
+	Force         bool
+	Headers       []string
+	Ips           []string
+	Paths         []string
+	Port          int
+	Proxy         string
+	Threads       int
+	Timeout       int
+	Tls           bool
+	Verbose       bool
+	Verify        bool
+	RetryBaseline int
+	Wordlist      []string
 }
 
 type Job struct {
@@ -45,41 +46,78 @@ func EnumerateVhosts(opts *Options) {
 		go worker(fuzzer, threadChan, &wg)
 	}
 
+	type failure struct {
+		ip   string
+		path string
+	}
+	var failures []failure
+
+	getBaseline := func(ip, path string) (*FuzzResult, error) {
+		var domain string
+		if len(domains) > 0 {
+			domain = fmt.Sprintf("%s.%s", uuid.NewString(), domains[0])
+		} else {
+			domain = uuid.NewString()
+		}
+		return fuzzer.FuzzHost(ip, domain, path)
+	}
+
+	queueBaseline := func(ip, path string, baseline *FuzzResult) {
+		for _, domain := range domains {
+			wg.Add(1)
+			threadChan <- Job{
+				Baseline: baseline,
+				Domain:   domain,
+				Ip:       ip,
+				Path:     path,
+			}
+		}
+	}
+
 	for _, ip := range opts.Ips {
 		for _, path := range opts.Paths {
 			baseUrl := fuzzer.GetBaseUrl(ip, path)
 			if opts.Verbose {
 				fmt.Printf("[!] Obtaining baseline on: %s\n", baseUrl)
 			}
-			// Best effort UUID.{domain}, which is a slight improvement over just UUID
-			var domain string
-			if len(domains) > 0 {
-				domain = fmt.Sprintf("%s.%s", uuid.NewString(), domains[0])
-			} else {
-				domain = uuid.NewString()
-			}
-			baseline, err := fuzzer.FuzzHost(ip, domain, path)
+			baseline, err := getBaseline(ip, path)
 			if err != nil {
 				fmt.Printf("[!] Failed to obtain baseline (%s): %s\n", baseUrl, err.Error())
+				failures = append(failures, failure{ip, path})
+				continue
 			}
-			if err == nil || (err != nil && opts.Force == true) {
-				if opts.Force == true && baseline == nil {
-					baseline = &FuzzResult{
-						ContentLength: 0,
-						Response:      "",
-						Status:        0,
-					}
+			queueBaseline(ip, path, baseline)
+		}
+	}
+
+	for r := 0; r < opts.RetryBaseline && len(failures) > 0; r++ {
+		if opts.Verbose {
+			fmt.Printf("[!] Retrying %d failed baselines (attempt %d/%d)\n", len(failures), r+1, opts.RetryBaseline)
+		}
+		var nextFailures []failure
+		for _, f := range failures {
+			baseline, err := getBaseline(f.ip, f.path)
+			if err != nil {
+				if opts.Verbose {
+					baseUrl := fuzzer.GetBaseUrl(f.ip, f.path)
+					fmt.Printf("[!] Failed to obtain baseline (%s) during retry: %s\n", baseUrl, err.Error())
 				}
-				for _, domain := range domains {
-					wg.Add(1)
-					threadChan <- Job{
-						Baseline: baseline,
-						Domain:   domain,
-						Ip:       ip,
-						Path:     path,
-					}
-				}
+				nextFailures = append(nextFailures, f)
+				continue
 			}
+			queueBaseline(f.ip, f.path, baseline)
+		}
+		failures = nextFailures
+	}
+
+	if opts.Force && len(failures) > 0 {
+		baseline := &FuzzResult{
+			ContentLength: 0,
+			Response:      "",
+			Status:        0,
+		}
+		for _, f := range failures {
+			queueBaseline(f.ip, f.path, baseline)
 		}
 	}
 	wg.Wait()

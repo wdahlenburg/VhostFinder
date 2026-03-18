@@ -24,9 +24,10 @@ REQUIRED:
    -wordlist string[]  File of FQDNs or subdomain prefixes to fuzz for
 
 OTHER OPTIONS:
-   -d, -domain string[]  Optional domain(s) to append to a subdomain wordlist (Ex: example1.com)
+   -d, -domain string[]  Domain(s) to append to a subdomain wordlist (Ex: example1.com)
+   -force                Force bruteforce when baseline fails
    -H, -header string[]  Custom header(s) for each request
-   -p, -path string[]    Custom path(s) to send during fuzzing (default ["/"])
+   -p, -path string[]    Custom path(s) to send during fuzzing
    -paths string[]       File list of custom paths
    -port int             Port to use (default 443)
    -proxy string         Proxy (Ex: http://127.0.0.1:8080)
@@ -35,6 +36,7 @@ OTHER OPTIONS:
    -tls                  Use TLS (default true)
    -v, -verbose          Verbose mode
    -verify               Verify vhost is different than public url
+   -retry-baseline int   Number of times to retry a failed baseline (default 1)
 ```
 
 ### Examples:

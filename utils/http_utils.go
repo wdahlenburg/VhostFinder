@@ -195,6 +195,7 @@ func GetClient(opts *Options) *http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+		Timeout: time.Duration(opts.Timeout) * time.Second,
 	}
 
 	return webclient
